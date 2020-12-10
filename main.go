@@ -24,7 +24,7 @@ func homePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func retriveRows(w http.ResponseWriter, r *http.Request) {
-	 fmt.Println("Endpoint Hit: returnAllRows")
+	fmt.Println("Endpoint Hit: returnAllRows")
     json.NewEncoder(w).Encode(arr);
 }
 
@@ -41,7 +41,38 @@ func retriveSingleRow(w http.ResponseWriter, r *http.Request) {
 
 func createSingleRow(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	fmt.Fprintf(w, "%+v", string(reqBody))
+	var row Row
+	//fmt.Fprintf(w, "%+v", string(reqBody))
+	json.Unmarshal(reqBody, &row);
+
+	arr = append(arr, row);
+	json.NewEncoder(w).Encode(arr);
+	//fmt.Fprintf(w, "%+v", string(reqBody))
+}
+
+func updateSingleRow(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Endpoint Hit: update single Row")
+	id := mux.Vars(r)["id"];
+	reqBody, _ := ioutil.ReadAll(r.Body)
+	var newRow Row
+	json.Unmarshal(reqBody, &newRow);
+
+	for index, row := range arr {
+		if row.ID == id {
+			row.Name = newRow.Name;
+			arr[index] = row;
+		}
+	}
+
+}
+
+func deleteSingleRow(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"];
+	for index, row := range arr {
+		if row.ID == id {
+			arr = append(arr[:index],arr[index+1:]... )
+		}
+	}
 }
 
 func handleRequests() {
@@ -55,6 +86,8 @@ func handleRequestsWithRouter() {
 	myRouter.HandleFunc("/", homePage);
 	myRouter.HandleFunc("/all", retriveRows);
 	myRouter.HandleFunc("/row", createSingleRow).Methods("POST")
+	myRouter.HandleFunc("/row/{id}", deleteSingleRow).Methods("DELETE")
+	myRouter.HandleFunc("/row/{id}", updateSingleRow).Methods("PUT")
 	myRouter.HandleFunc("/row/{id}", retriveSingleRow);
 	log.Fatal((http.ListenAndServe(":10000", myRouter)));
 }
