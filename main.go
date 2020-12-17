@@ -6,91 +6,101 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
 )
 
-// Row struct
-type Row struct {
-	ID   string `json:"Id"`
-	Name string `json:"Name"`
+// Rocket struct
+type Rocket struct {
+	ID         string `json:"Id"`
+	RocketName string `json:"Rocket_Name"`
+	Weight     int    `json:"Weight"`
 }
 
-var arr []Row
+var rockets []Rocket
 
 func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Welcome to the home page")
+	fmt.Fprintf(w, "Welcome to the home page\n")
+	for _, rocket := range rockets {
+		fmt.Fprintf(w, "%v\n", rocket)
+	}
 	fmt.Printf("endpoint: home page")
-
 }
 
-func retriveRows(w http.ResponseWriter, r *http.Request) {
+func retriveRockets(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("Endpoint Hit: returnAllRows")
-	json.NewEncoder(w).Encode(arr)
+	json.NewEncoder(w).Encode(rockets)
 }
 
-func retriveSingleRow(w http.ResponseWriter, r *http.Request) {
+func retriveSingleRocket(w http.ResponseWriter, r *http.Request) {
 	variables := mux.Vars(r)
 	key := variables["id"]
 	//fmt.Fprintf(w, "key: " + key);
-	for _, row := range arr {
+	for _, row := range rockets {
 		if row.ID == key {
 			json.NewEncoder(w).Encode(row)
 		}
 	}
 }
 
-func createSingleRow(w http.ResponseWriter, r *http.Request) {
+func createSingleRocket(w http.ResponseWriter, r *http.Request) {
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	var row Row
+	var rocket Rocket
 	//fmt.Fprintf(w, "%+v", string(reqBody))
-	json.Unmarshal(reqBody, &row)
+	json.Unmarshal(reqBody, &rocket)
 
-	arr = append(arr, row)
-	json.NewEncoder(w).Encode(arr)
+	rockets = append(rockets, rocket)
+	json.NewEncoder(w).Encode(rockets)
 	//fmt.Fprintf(w, "%+v", string(reqBody))
 }
 
-func updateSingleRow(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Endpoint Hit: update single Row")
+func updateSingleRocket(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Endpoint Hit: update single Rocket")
 	id := mux.Vars(r)["id"]
 	reqBody, _ := ioutil.ReadAll(r.Body)
-	var newRow Row
-	json.Unmarshal(reqBody, &newRow)
+	var newRocket Rocket
+	json.Unmarshal(reqBody, &newRocket)
 
-	for index, row := range arr {
-		if row.ID == id {
-			row.Name = newRow.Name
-			arr[index] = row
+	for index, rocket := range rockets {
+		if rocket.ID == id {
+			rocket.RocketName = newRocket.RocketName
+			rockets[index] = rocket
 		}
 	}
 
 }
 
-func deleteSingleRow(w http.ResponseWriter, r *http.Request) {
+func deleteSingleRocket(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	for index, row := range arr {
+	for index, row := range rockets {
 		if row.ID == id {
-			arr = append(arr[:index], arr[index+1:]...)
+			rockets = append(rockets[:index], rockets[index+1:]...)
 		}
 	}
 }
 
-func handleRequests() {
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/row", retriveRows)
-	log.Fatal(http.ListenAndServe(":10000", nil))
-}
-
-func handleRequestsWithRouter() {
-	myRouter := Router()
-	log.Fatal((http.ListenAndServe(":10000", myRouter)))
+func errorHandler(err error, message string) {
+	if err != nil {
+		log.Println(message)
+		panic(err.Error)
+	}
 }
 
 func main() {
-	arr = []Row{
-		{ID: "1", Name: "alpha"},
-		{ID: "2", Name: "beta"},
+	rockets = []Rocket{
+		{ID: "1", RocketName: "alpha", Weight: 5},
+		{ID: "2", RocketName: "beta", Weight: 10},
 	}
-	handleRequestsWithRouter()
+	log.Println("Starting Server")
+	err := godotenv.Load()
+	errorHandler(err, "error with loading env variables")
+
+	// init router singleton
+	myRouter := Router()
+	log.Printf("Running on port %v\n", os.Getenv("PORT"))
+	err = http.ListenAndServe(os.Getenv("PORT"), myRouter)
+	errorHandler(err, "Error with starting port")
+
 }
