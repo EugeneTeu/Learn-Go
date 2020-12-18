@@ -95,7 +95,7 @@ func getTitle(w http.ResponseWriter, r *http.Request) (string, error) {
 }
 
 func main() {
-
+	fmt.Println("Test")
 	p1 := &Page{Title: "TestPage", Body: []byte("This is a sample Page.")}
 	p1.save()
 	p2, _ := loadPage("TestPage")
