@@ -17,7 +17,6 @@ func testPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func retriveRockets(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Endpoint Hit: returnAllRows")
 	json.NewEncoder(w).Encode(rockets)
 }
 
