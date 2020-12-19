@@ -11,9 +11,10 @@ import (
 
 // Rocket struct
 type Rocket struct {
-	ID         string `json:"Id"`
-	RocketName string `json:"Rocket_Name"`
-	Weight     int    `json:"Weight"`
+	ID            string `json:"Id"`
+	RocketName    string `json:"Rocket_Name"`
+	PayloadWeight int    `json:"Payload_Weight"`
+	RocketType    string `json:"Rocket_Type"`
 }
 
 var rockets []Rocket
@@ -27,8 +28,8 @@ func errorHandler(err error, message string) {
 
 func main() {
 	rockets = []Rocket{
-		{ID: "1", RocketName: "alpha", Weight: 5},
-		{ID: "2", RocketName: "beta", Weight: 10},
+		{ID: "1", RocketName: "alpha", PayloadWeight: 5, RocketType: "apollo"},
+		{ID: "2", RocketName: "beta", PayloadWeight: 10, RocketType: "gemini"},
 	}
 	log.Println("Starting Server")
 	err := godotenv.Load()

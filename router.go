@@ -44,18 +44,28 @@ var endpoints = map[string]string{
 	singleRocket: "/rocket/{id}",
 }
 
-func makeHandler(fn func(http.ResponseWriter, *http.Request), title string) http.HandlerFunc {
+// func wrapper
+func makeHandler(fn http.HandlerFunc, title string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Printf("Endpoint hit: %s\n", title)
 		fn(w, r)
 	}
 }
 
+// middle ware
+func loggingMiddleware(fn http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Printf("Request uri: %v\n", r.RequestURI)
+		fn.ServeHTTP(w, r)
+	})
+}
+
 // Router handles routing
 func Router() *mux.Router {
 	myRouter := mux.NewRouter().StrictSlash(true)
+	myRouter.Use(loggingMiddleware)
 	myRouter.HandleFunc(endpoints[homePage], makeHandler(testPage, endpoints[homePage]))
-	myRouter.HandleFunc(endpoints[all], makeHandler(retriveRockets, endpoints[all]))
+	myRouter.HandleFunc(endpoints[all], makeHandler(retrieveRockets, endpoints[all]))
 	myRouter.HandleFunc(endpoints[rocket], makeHandler(createSingleRocket, endpoints["rocket"])).Methods("POST")
 	myRouter.HandleFunc(endpoints[singleRocket], makeHandler(deleteSingleRocket, endpoints[singleRocket])).Methods("DELETE")
 	myRouter.HandleFunc(endpoints[singleRocket], makeHandler(updateSingleRocket, endpoints[singleRocket])).Methods("PUT")
