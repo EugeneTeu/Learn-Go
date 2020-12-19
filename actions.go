@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func homePage(w http.ResponseWriter, r *http.Request) {
+func testPage(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Welcome to test page\n")
 	for _, rocket := range rockets {
 		fmt.Fprintf(w, "%v\n", rocket)

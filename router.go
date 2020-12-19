@@ -30,12 +30,18 @@ func (name *EndpointName) getValue(b []byte) string {
 
 }
 */
+const (
+	homePage     string = "homePage"
+	all          string = "all"
+	rocket       string = "rocket"
+	singleRocket string = "singleRocket"
+)
 
 var endpoints = map[string]string{
-	"homePage":     "/",
-	"all":          "/all",
-	"rocket":       "/rocket",
-	"singleRocket": "/rocket/{id}",
+	homePage:     "/",
+	all:          "/all",
+	rocket:       "/rocket",
+	singleRocket: "/rocket/{id}",
 }
 
 func makeHandler(fn func(http.ResponseWriter, *http.Request), title string) http.HandlerFunc {
@@ -48,11 +54,11 @@ func makeHandler(fn func(http.ResponseWriter, *http.Request), title string) http
 // Router handles routing
 func Router() *mux.Router {
 	myRouter := mux.NewRouter().StrictSlash(true)
-	myRouter.HandleFunc(endpoints["homePage"], makeHandler(homePage, endpoints["homePage"]))
-	myRouter.HandleFunc(endpoints["all"], makeHandler(retriveRockets, endpoints["all"]))
-	myRouter.HandleFunc(endpoints["rocket"], makeHandler(createSingleRocket, endpoints["rocket"])).Methods("POST")
-	myRouter.HandleFunc(endpoints["singleRocket"], makeHandler(deleteSingleRocket, endpoints["singleRocket"])).Methods("DELETE")
-	myRouter.HandleFunc(endpoints["singleRocket"], makeHandler(updateSingleRocket, endpoints["singleRocket"])).Methods("PUT")
-	myRouter.HandleFunc(endpoints["singleRocket"], makeHandler(retrieveSingleRocket, endpoints["singleRocket"]))
+	myRouter.HandleFunc(endpoints[homePage], makeHandler(testPage, endpoints[homePage]))
+	myRouter.HandleFunc(endpoints[all], makeHandler(retriveRockets, endpoints[all]))
+	myRouter.HandleFunc(endpoints[rocket], makeHandler(createSingleRocket, endpoints["rocket"])).Methods("POST")
+	myRouter.HandleFunc(endpoints[singleRocket], makeHandler(deleteSingleRocket, endpoints[singleRocket])).Methods("DELETE")
+	myRouter.HandleFunc(endpoints[singleRocket], makeHandler(updateSingleRocket, endpoints[singleRocket])).Methods("PUT")
+	myRouter.HandleFunc(endpoints[singleRocket], makeHandler(retrieveSingleRocket, endpoints[singleRocket]))
 	return myRouter
 }
