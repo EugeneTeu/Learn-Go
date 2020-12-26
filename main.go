@@ -17,10 +17,10 @@ import (
 
 // Rocket struct
 type Rocket struct {
-	ID            string `json:"Id"`
-	RocketName    string `json:"Rocket_Name"`
-	PayloadWeight int    `json:"Payload_Weight"`
-	RocketType    string `json:"Rocket_Type"`
+	ID            string `json:"id"`
+	RocketName    string `json:"rocket_name"`
+	PayloadWeight int    `json:"payload_weight"`
+	RocketType    string `json:"rocket_type"`
 }
 
 var rockets []Rocket
@@ -34,8 +34,8 @@ func errorHandler(err error, message string) {
 
 func main() {
 	rockets = []Rocket{
-		{ID: "1", RocketName: "alpha", PayloadWeight: 5, RocketType: "apollo"},
-		{ID: "2", RocketName: "beta", PayloadWeight: 10, RocketType: "gemini"},
+		/*{ID: "1", RocketName: "alpha", PayloadWeight: 5, RocketType: "apollo"},
+		{ID: "2", RocketName: "beta", PayloadWeight: 10, RocketType: "gemini"},*/
 	}
 	log.Println("Starting Server")
 	err := godotenv.Load()
@@ -52,12 +52,8 @@ func main() {
 	//log.Printf(string(createTable))
 	_, err = db.Query(string(createTable))
 	errorHandler(err, "create table failed")
-	/*
-		_, err = db.Exec(string(query))
-		errorHandler(err, "error executing sql file")
-		//fmt.Println(os.Environ())
-	*/
 	defer db.Close()
+
 	// init router singleton
 	myRouter := Router()
 	log.Printf("Running on port %v\n", os.Getenv("PORT"))
