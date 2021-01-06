@@ -32,6 +32,8 @@ func errorHandler(err error, message string) {
 	}
 }
 
+var db *sql.DB
+
 func main() {
 	rockets = []Rocket{
 		/*{ID: "1", RocketName: "alpha", PayloadWeight: 5, RocketType: "apollo"},
@@ -40,7 +42,7 @@ func main() {
 	log.Println("Starting Server")
 	err := godotenv.Load()
 	errorHandler(err, "error with loading env variables")
-	db, err := sql.Open("mysql", os.Getenv("dev"))
+	db, err = sql.Open("mysql", os.Getenv("dev"))
 	errorHandler(err, "error with db connection")
 
 	// run sql create table
