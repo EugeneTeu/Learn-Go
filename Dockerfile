@@ -1,8 +1,23 @@
-FROM golang:1.15.6-alpine3.12 AS build
-WORKDIR /
-COPY . .
-RUN go get github.com/gorilla/mux
-RUN go build -o out/example .
-FROM scratch AS bin
-copy --from=build /out/example /
+FROM golang:alpine
 
+LABEL maintainer="@goLangRestApi <eugeneteu@gmail.com>"
+
+WORKDIR /
+
+COPY go.mod .
+
+COPY go.sum .
+
+RUN go mod download 
+
+COPY . .
+
+RUN chmod +x ./wait-for.sh
+
+ENV PORT ":8000"
+
+EXPOSE 8000 8000
+
+RUN go build 
+
+CMD ["./wait-for.sh" , "mysql:3306" , "--timeout=300" , "--" , "./m"]

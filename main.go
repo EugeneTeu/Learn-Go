@@ -6,7 +6,6 @@ package main
 //TODO: Add function signatures
 import (
 	"database/sql"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -39,27 +38,28 @@ func main() {
 		/*{ID: "1", RocketName: "alpha", PayloadWeight: 5, RocketType: "apollo"},
 		{ID: "2", RocketName: "beta", PayloadWeight: 10, RocketType: "gemini"},*/
 	}
-	log.Println("Starting Server")
+	log.Println("Starting Server 2")
 	err := godotenv.Load()
 	errorHandler(err, "error with loading env variables")
 	db, err = sql.Open("mysql", os.Getenv("dev"))
 	errorHandler(err, "error with db connection")
-
-	// run sql create table
-	dropTable, err := ioutil.ReadFile("./sql/drop-table.sql")
-	errorHandler(err, "error reading sql file")
-	//log.Printf(string(query))
-	db.Query(string(dropTable))
-	createTable, err := ioutil.ReadFile("./sql/create-table.sql")
-	//log.Printf(string(createTable))
-	_, err = db.Query(string(createTable))
-	errorHandler(err, "create table failed")
+	/*
+		// run sql create table
+		dropTable, err := ioutil.ReadFile("./sql/drop-table.sql")
+		errorHandler(err, "error reading sql file")
+		//log.Printf(string(query))
+		db.Query(string(dropTable))
+		createTable, err := ioutil.ReadFile("./sql/create-table.sql")
+		//log.Printf(string(createTable))
+		_, err = db.Query(string(createTable))
+		errorHandler(err, "create table failed")
+	*/
 	defer db.Close()
 
 	// init router singleton
 	myRouter := Router()
-	log.Printf("Running on port %v\n", os.Getenv("PORT"))
-	err = http.ListenAndServe(os.Getenv("PORT"), myRouter)
+	log.Printf("Running on port %v\n", os.Getenv("API_PORT"))
+	err = http.ListenAndServe(os.Getenv("API_PORT"), myRouter)
 	errorHandler(err, "Error with starting port")
 
 }
