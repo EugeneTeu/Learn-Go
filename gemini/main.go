@@ -6,6 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+
+	"github.com/gorilla/websocket"
+	_ "github.com/gorilla/websocket"
 )
 
 type SymbolDetails struct {
@@ -69,9 +72,18 @@ func main() {
 		fmt.Printf("%+v\n", value)
 	}
 
-	for _, value := range SymbolDetails.Symbols {
-		fmt.Printf("%+v\n", value)
+	// for _, value := range SymbolDetails.Symbols {
+	// 	fmt.Printf("%+v\n", value)
+	// }
+
+	c := OpenWebSocket("ETHUSD")
+	defer c.Close()
+	_, message, err := c.ReadMessage()
+	if err != nil {
+		// handle error
 	}
+	//TODO: figure out how to decode message
+	fmt.Println(message)
 
 	//TODO: convert this to a api capable server
 	// err := godotenv.Load()
@@ -79,14 +91,6 @@ func main() {
 	// err = http.ListenAndServe(os.Getenv("API_PORT"), mux.NewRouter().StrictSlash(true))
 	// errLogger(err, "could not start HTTP server")
 	// log.Printf("HTTP server started at port: %s\n", os.Getenv("API_PORT"))
-}
-
-func PrepareGetPubTicketString(symbol string) (result string) {
-	return "https://api.gemini.com/v1/symbols/details/" + symbol
-}
-
-func GetPriceFeedUrl() (result string) {
-	return "https://api.gemini.com/v1/pricefeed"
 }
 
 func GetTickers(url string) (val []string) {
@@ -136,6 +140,14 @@ func GetSymbolDetail(url string) (val SymbolDetail) {
 	return response
 }
 
+func OpenWebSocket(symbol string) (d *websocket.Conn) {
+	c, _, err := websocket.DefaultDialer.Dial(GetWebSocketUrl(symbol), nil)
+	if err != nil {
+		errLogger(err, "something wrong w websocket")
+	}
+	return c
+}
+
 /* Reference */
 func CallAPI(url string) (val map[string]interface{}) {
 	resp, err := http.Get(url)
@@ -152,4 +164,20 @@ func CallAPI(url string) (val map[string]interface{}) {
 	}
 	//fmt.Println(response)
 	return response
+}
+
+// websocket
+//https://github.com/gorilla/websocket/tree/master/examples/echo
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	_, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	//... Use conn to send and receive messages.
 }
