@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"sync"
 
 	"github.com/gorilla/websocket"
 	_ "github.com/gorilla/websocket"
@@ -13,6 +14,7 @@ import (
 
 type SymbolDetails struct {
 	Symbols []SymbolDetail
+	mutex   sync.Mutex
 }
 
 type SymbolDetail struct {
@@ -39,7 +41,7 @@ func errLogger(err error, message string) {
 }
 
 func main() {
-	SymbolDetails := SymbolDetails{Symbols: []SymbolDetail{}}
+	SymbolDetails := SymbolDetails{Symbols: []SymbolDetail{}, mutex: sync.Mutex{}}
 	// tickerArray := GetTickers("https://api.gemini.com/v1/symbols")
 
 	// ticker := make(map[string]map[string]interface{})
@@ -62,9 +64,14 @@ func main() {
 
 	for _, val := range symbols {
 		fmt.Printf("Getting info for %s\n", val)
-		queryString := PrepareGetPubTicketString(val)
-		tickerInfo := GetSymbolDetail(queryString)
-		SymbolDetails.Symbols = append(SymbolDetails.Symbols, tickerInfo)
+		go func(val string) {
+			queryString := PrepareGetPubTicketString(val)
+			tickerInfo := GetSymbolDetail(queryString)
+
+			SymbolDetails.mutex.Lock()
+			SymbolDetails.Symbols = append(SymbolDetails.Symbols, tickerInfo)
+			SymbolDetails.mutex.Unlock()
+		}(val)
 	}
 
 	priceFeed := GetPriceFeed()
