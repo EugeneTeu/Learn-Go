@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -43,23 +45,54 @@ func main() {
 		defer wg.Done()
 		priceFeedArray = GetPriceFeed()
 	}()
+
+	// wg.Add(1)
+	// go func() {
+	// 	openWSSConnection("ETHUSD")
+	// 	wg.Done()
+	// }()
+
 	wg.Wait()
 	log.Println(fmt.Sprintf("Queried a total of %v symbols", len(SymbolDetails.Symbols)))
-	log.Println(priceFeedArray)
-	websocketConnection = ws.OpenWebSocket("ETHUSD")
-	wg.Add(1)
+	processPriceFeed(priceFeedArray)
+}
+
+func processPriceFeed(priceFeedArray *[]PriceFeedStruct) {
+
+	sort.Slice(*priceFeedArray, func(i, j int) bool {
+		return (*priceFeedArray)[i].PercentChange24h < (*priceFeedArray)[j].PercentChange24h
+	})
+	topTenGreatestChange := (*priceFeedArray)[len(*priceFeedArray)-10:]
+
+	for _, ticker := range topTenGreatestChange {
+		val, _ := strconv.ParseFloat(ticker.PercentChange24h, 32)
+		percentageChange := val * 100
+		var percentageChangeStr string
+		if percentageChange > 0 {
+			percentageChangeStr = fmt.Sprintf("+%.2f", percentageChange)
+		} else {
+			percentageChangeStr = fmt.Sprintf("-%.2f", percentageChange)
+		}
+		str := fmt.Sprintf("%v, price: %v, 24h change: %v", ticker.Pair, ticker.Price, percentageChangeStr)
+		log.Println(str)
+	}
+
+}
+
+func openWSSConnection(symbol string) bool {
+	websocketConnection = ws.OpenWebSocket(symbol)
 	defer websocketConnection.Close()
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 	done := make(chan struct{})
 
-	go func() {
+	go func() bool {
 		defer close(done)
 		for {
 			_, message, err := websocketConnection.ReadMessage()
 			if err != nil {
 				log.Println("read:", err)
-				return
+				return true
 			}
 			log.Printf("recv: %s", message)
 		}
@@ -71,30 +104,28 @@ func main() {
 	for {
 		select {
 		case <-done:
-			return
+			return true
 		case t := <-ticker.C:
 			err := websocketConnection.WriteMessage(websocket.TextMessage, []byte(t.String()))
 			if err != nil {
 				log.Println("write:", err)
-				return
+				return true
 			}
 		case <-interrupt:
 			log.Println("interrupt")
-			// Cleanly close the connection by sending a close message and then
-			// waiting (with timeout) for the server to close the connection.
+
 			err := websocketConnection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				log.Println("write close:", err)
-				return
+				return true
 			}
 			select {
 			case <-done:
 			case <-time.After(time.Second):
 			}
-			return
+			return true
 		}
 	}
-
 }
 
 func ErrLogger(err error, message string) {
@@ -124,6 +155,7 @@ func GetTickers(url string) (val []string) {
 	if err != nil {
 		fmt.Println(err)
 	}
+
 	return response
 }
 
@@ -140,7 +172,17 @@ func GetPriceFeed() (val *[]PriceFeedStruct) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	return &response
+
+	var arr []PriceFeedStruct
+
+	for _, ticker := range response {
+		if ticker.Pair[3:] == "USD" {
+			arr = append(arr, ticker)
+		}
+
+	}
+
+	return &arr
 }
 
 func GetSymbolDetail(url string) (val SymbolDetail) {
