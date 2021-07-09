@@ -1,6 +1,6 @@
-package main
+package util
 
-func PrepareGetPubTicketString(symbol string) (result string) {
+func GetPubTicketString(symbol string) (result string) {
 	return "https://api.gemini.com/v1/symbols/details/" + symbol
 }
 

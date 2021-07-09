@@ -6,91 +6,109 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"sync"
+	"time"
+
+	util "gemini/util"
+
+	ws "gemini/websocket"
 
 	"github.com/gorilla/websocket"
-	_ "github.com/gorilla/websocket"
 )
 
-type SymbolDetails struct {
-	Symbols []SymbolDetail
+var (
+	priceFeedArray = &[]PriceFeedStruct{}
+
+	websocketConnection *websocket.Conn
+)
+
+func main() {
+	SymbolDetails := SymbolDetails{Symbols: []SymbolDetail{}}
+	symbols := GetTickers("https://api.gemini.com/v1/symbols")
+	var wg sync.WaitGroup
+	wg.Add(len(symbols))
+	log.Println("Getting symbols")
+	for _, val := range symbols {
+		go func(val string) {
+			defer wg.Done()
+			queryString := util.GetPubTicketString(val)
+			tickerInfo := GetSymbolDetail(queryString)
+			SymbolDetails.Symbols = append(SymbolDetails.Symbols, tickerInfo)
+		}(val)
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		priceFeedArray = GetPriceFeed()
+	}()
+	wg.Wait()
+	log.Println(fmt.Sprintf("Queried a total of %v symbols", len(SymbolDetails.Symbols)))
+	log.Println(priceFeedArray)
+	websocketConnection = ws.OpenWebSocket("ETHUSD")
+	wg.Add(1)
+	defer websocketConnection.Close()
+	interrupt := make(chan os.Signal, 1)
+	signal.Notify(interrupt, os.Interrupt)
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+		for {
+			_, message, err := websocketConnection.ReadMessage()
+			if err != nil {
+				log.Println("read:", err)
+				return
+			}
+			log.Printf("recv: %s", message)
+		}
+	}()
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case t := <-ticker.C:
+			err := websocketConnection.WriteMessage(websocket.TextMessage, []byte(t.String()))
+			if err != nil {
+				log.Println("write:", err)
+				return
+			}
+		case <-interrupt:
+			log.Println("interrupt")
+			// Cleanly close the connection by sending a close message and then
+			// waiting (with timeout) for the server to close the connection.
+			err := websocketConnection.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			if err != nil {
+				log.Println("write close:", err)
+				return
+			}
+			select {
+			case <-done:
+			case <-time.After(time.Second):
+			}
+			return
+		}
+	}
+
 }
 
-type SymbolDetail struct {
-	Symbol         string `json:"symbol"`
-	BaseCurrency   string `json:"base_currency"`
-	QuoteCurrency  string `json:"quote_currency"`
-	TickSize       int    `json:"tick_size"`
-	QuoteIncrement int    `json:"quote_increment"`
-	MinOrderSize   string `json:"min_order_size"`
-	Status         string `json:"status"`
-}
-
-type PriceFeedStruct struct {
-	Pair             string `json:"pair"`
-	Price            string `json:"price"`
-	PercentChange24h string `json:"percentChange24h"`
-}
-
-func errLogger(err error, message string) {
+func ErrLogger(err error, message string) {
 	if err != nil {
 		log.Println(message)
 		panic(err.Error())
 	}
 }
 
-func main() {
-	SymbolDetails := SymbolDetails{Symbols: []SymbolDetail{}}
-	// tickerArray := GetTickers("https://api.gemini.com/v1/symbols")
-
-	// ticker := make(map[string]map[string]interface{})
-
-	// //fmt.Println(tickerArray)
-	// for _, val := range tickerArray {
-
-	// 	// strippedString := val[1 : len(val)-1]
-	// 	fmt.Printf("Getting info for %s\n", val)
-	// 	queryString := PrepareGetPubTicketString(val)
-	// 	//fmt.Println(queryString)
-	// 	tickerInfo := CallAPI(queryString)
-	// 	ticker[val] = tickerInfo
-	// }
-	// for key, value := range ticker {
-	// 	fmt.Printf("%s : %s\n", key, value)
-	// }
-
-	symbols := GetTickers("https://api.gemini.com/v1/symbols")
-
-	for _, val := range symbols {
-		fmt.Printf("Getting info for %s\n", val)
-		queryString := PrepareGetPubTicketString(val)
-		tickerInfo := GetSymbolDetail(queryString)
-		SymbolDetails.Symbols = append(SymbolDetails.Symbols, tickerInfo)
-	}
-
-	priceFeed := GetPriceFeed()
-	for _, value := range priceFeed {
-		fmt.Printf("%+v\n", value)
-	}
-
-	// for _, value := range SymbolDetails.Symbols {
-	// 	fmt.Printf("%+v\n", value)
-	// }
-
-	c := OpenWebSocket("ETHUSD")
-	defer c.Close()
-	_, message, err := c.ReadMessage()
-	if err != nil {
-		// handle error
-	}
-	//TODO: figure out how to decode message
-	fmt.Println(message)
-
-	//TODO: convert this to a api capable server
-	// err := godotenv.Load()
-	// errLogger(err, "error with loading env variables")
-	// err = http.ListenAndServe(os.Getenv("API_PORT"), mux.NewRouter().StrictSlash(true))
-	// errLogger(err, "could not start HTTP server")
-	// log.Printf("HTTP server started at port: %s\n", os.Getenv("API_PORT"))
+func getData(val string) SymbolDetail {
+	fmt.Printf("Getting info for %s\n", val)
+	queryString := util.GetPubTicketString(val)
+	tickerInfo := GetSymbolDetail(queryString)
+	return tickerInfo
 }
 
 func GetTickers(url string) (val []string) {
@@ -109,9 +127,9 @@ func GetTickers(url string) (val []string) {
 	return response
 }
 
-func GetPriceFeed() (val []PriceFeedStruct) {
+func GetPriceFeed() (val *[]PriceFeedStruct) {
 	// gemini returns [ "BTCUSD" ....]
-	resp, err := http.Get(GetPriceFeedUrl())
+	resp, err := http.Get(util.GetPriceFeedUrl())
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -122,7 +140,7 @@ func GetPriceFeed() (val []PriceFeedStruct) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	return response
+	return &response
 }
 
 func GetSymbolDetail(url string) (val SymbolDetail) {
@@ -138,14 +156,6 @@ func GetSymbolDetail(url string) (val SymbolDetail) {
 		fmt.Println(err)
 	}
 	return response
-}
-
-func OpenWebSocket(symbol string) (d *websocket.Conn) {
-	c, _, err := websocket.DefaultDialer.Dial(GetWebSocketUrl(symbol), nil)
-	if err != nil {
-		errLogger(err, "something wrong w websocket")
-	}
-	return c
 }
 
 /* Reference */
@@ -166,18 +176,20 @@ func CallAPI(url string) (val map[string]interface{}) {
 	return response
 }
 
-// websocket
-//https://github.com/gorilla/websocket/tree/master/examples/echo
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-}
+// tickerArray := GetTickers("https://api.gemini.com/v1/symbols")
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	_, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Println(err)
-		return
-	}
-	//... Use conn to send and receive messages.
-}
+// ticker := make(map[string]map[string]interface{})
+
+// //fmt.Println(tickerArray)
+// for _, val := range tickerArray {
+
+// 	// strippedString := val[1 : len(val)-1]
+// 	fmt.Printf("Getting info for %s\n", val)
+// 	queryString := PrepareGetPubTicketString(val)
+// 	//fmt.Println(queryString)
+// 	tickerInfo := CallAPI(queryString)
+// 	ticker[val] = tickerInfo
+// }
+// for key, value := range ticker {
+// 	fmt.Printf("%s : %s\n", key, value)
+// }

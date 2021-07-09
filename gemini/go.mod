@@ -1,4 +1,4 @@
-module gemini/test
+module gemini
 
 go 1.15
 
