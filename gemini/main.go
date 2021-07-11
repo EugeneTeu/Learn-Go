@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ func main() {
 	var wg sync.WaitGroup
 	wg.Add(len(symbols))
 	log.Println("Getting symbols")
+
 	for _, val := range symbols {
 		go func(val string) {
 			defer wg.Done()
@@ -44,26 +46,30 @@ func main() {
 	go func() {
 		defer wg.Done()
 		priceFeedArray = GetPriceFeed()
+		processTopTenChangers(priceFeedArray)
 	}()
 
 	// wg.Add(1)
 	// go func() {
 	// 	openWSSConnection("ETHUSD")
+	
 	// 	wg.Done()
 	// }()
 
 	wg.Wait()
-	log.Println(fmt.Sprintf("Queried a total of %v symbols", len(SymbolDetails.Symbols)))
-	processPriceFeed(priceFeedArray)
+
 }
 
-func processPriceFeed(priceFeedArray *[]PriceFeedStruct) {
-
+func processTopTenChangers(priceFeedArray *[]PriceFeedStruct) {
+	if len(*priceFeedArray) < 10 {
+		return
+	}
 	sort.Slice(*priceFeedArray, func(i, j int) bool {
 		return (*priceFeedArray)[i].PercentChange24h < (*priceFeedArray)[j].PercentChange24h
 	})
-	topTenGreatestChange := (*priceFeedArray)[len(*priceFeedArray)-10:]
 
+	topTenGreatestChange := (*priceFeedArray)[len(*priceFeedArray)-10:]
+	result := []string{}
 	for _, ticker := range topTenGreatestChange {
 		val, _ := strconv.ParseFloat(ticker.PercentChange24h, 32)
 		percentageChange := val * 100
@@ -74,8 +80,10 @@ func processPriceFeed(priceFeedArray *[]PriceFeedStruct) {
 			percentageChangeStr = fmt.Sprintf("-%.2f", percentageChange)
 		}
 		str := fmt.Sprintf("%v, price: %v, 24h change: %v", ticker.Pair, ticker.Price, percentageChangeStr)
-		log.Println(str)
+		result = append(result, str)
 	}
+	fmt.Println(result)
+	log.Println(fmt.Sprintf("Top 10 movers today are:\n%s", strings.Join(result, "\n")))
 
 }
 
@@ -89,12 +97,12 @@ func openWSSConnection(symbol string) bool {
 	go func() bool {
 		defer close(done)
 		for {
-			_, message, err := websocketConnection.ReadMessage()
+			_, _, err := websocketConnection.ReadMessage()
 			if err != nil {
 				log.Println("read:", err)
 				return true
 			}
-			log.Printf("recv: %s", message)
+			//log.Printf("recv: %s", message)
 		}
 	}()
 

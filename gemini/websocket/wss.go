@@ -10,7 +10,7 @@ import (
 )
 
 func OpenWebSocket(symbol string) (c *websocket.Conn) {
-
+	
 	c, _, err := websocket.DefaultDialer.Dial(util.GetWebSocketUrl(symbol), nil)
 	if err != nil {
 		log.Println("something wrong w websocket")
